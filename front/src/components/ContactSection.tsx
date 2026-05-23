@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 
+const BASE = import.meta.env.VITE_API_URL ?? ''
+
 type FormState = {
   name: string
   phone: string
@@ -44,8 +46,7 @@ export const ContactSection = () => {
     event.preventDefault()
 
     try {
-      const response = await fetch(
-        'http://localhost:4000/api/contact',
+      const response = await fetch(`${BASE}/api/contact`,
         {
           method: 'POST',
           headers: {

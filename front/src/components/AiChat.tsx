@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react'
 
+const BASE = import.meta.env.VITE_API_URL ?? ''
+
 type Message = {
   id: number
   role: 'user' | 'assistant'
@@ -42,7 +44,7 @@ export const AiChat = () => {
     setState('loading')
 
     try {
-      const res = await fetch('/api/ai-chat', {
+      const res = await fetch(`${BASE}/api/ai-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: trimmed }),
