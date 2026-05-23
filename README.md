@@ -1,31 +1,36 @@
-# Developer Landing
+# Developer Portfolio — Александров Матвей
 
-Небольшой лендинг-презентация разработчика с рабочей формой обратной связи, Node.js API и опциональным AI helper.
+Лендинг-презентация разработчика с формой обратной связи и AI-чатом.
+
+**Деплой:** _(ссылка)_
+
+---
 
 ## Стек
 
-- Frontend: React, TypeScript, Vite, HTML, CSS
-- Backend: Node.js, Express, TypeScript, CORS, Fetch API
-- Email: Resend HTTP API или локальный dry-run режим
-- AI: OpenAI Responses API через отдельный backend endpoint
+**Frontend:** React, TypeScript, Vite, CSS  
+**Backend:** Node.js, Express, TypeScript  
+**Email:** Resend  
+**AI:** OpenRouter API (бесплатные модели, автовыбор через `/models`)
 
-## Как запустить
+---
+
+## Запуск
 
 ### Backend
 
 ```bash
 cd backend
-cp .env.example .env
-npm run dev
+cp .env.example .env   # заполни переменные
+npm install
+npm run dev            # http://localhost:4000
 ```
 
-Backend запускается на статичном порту `4000`. Почта владельца сайта зафиксирована в коде: `matveialex2007@gmail.com`.
-
-
-```env
-
-RESEND_API_KEY=your_resend_key
-
+`.env`:
+```
+RESEND_API_KEY=re_xxxxxxxxxxxx
+AI_API_KEY=sk-or-v1-xxxxxxxxxxxx
+AI_API_BASE=https://openrouter.ai/api/v1
 ```
 
 ### Frontend
@@ -34,48 +39,29 @@ RESEND_API_KEY=your_resend_key
 cd front
 cp .env.example .env
 npm install
-npm run dev
+npm run dev            # http://localhost:5173
 ```
-
-Vite проксирует запросы `/api` на `http://localhost:4000`. Если backend задеплоен отдельно, укажите `VITE_API_URL` в `front/.env`.
-
-## Как реализована форма
-
-Форма содержит поля `name`, `phone`, `email`, `comment`. На клиенте есть базовая проверка заполнения и состояния:
-
-- `loading`: кнопка показывает процесс отправки
-- `success`: пользователь видит подтверждение
-- `error`: показывается понятная ошибка от API
-
-Backend endpoint `POST /api/contact` повторно валидирует данные, формирует два письма и отправляет:
-
-- письмо владельцу сайта
-- копию письма пользователю
 
 
 ## AI-интеграция
 
-Endpoint `POST /api/ai-summary` принимает текст комментария и возвращает короткое summary. Если задан `OPENAI_API_KEY`, используется OpenAI Responses API. Если ключа нет, endpoint возвращает локальный fallback summary, чтобы интерфейс оставался рабочим при локальной проверке.
+**Чат-ассистент** (`POST /api/ai-chat`) — знает резюме , отвечает на вопросы о стеке, опыте и проектах.
 
-```env
-OPENAI_API_KEY=your_openai_key
-OPENAI_MODEL=gpt-4.1-mini
-```
+Сервер сам получает актуальный список бесплатных моделей через `GET /models` OpenRouter и перебирает их по очереди до первого успешного ответа.
+
+---
 
 ## Что делалось с помощью ИИ
 
-- Быстро собрана структура лендинга и API.
-- Сформулированы тексты секций и кейсов.
-- Добавлены валидация и обработка ошибок.
-- Подготовлен README.
+- Системный промпт для AI-ассистента
+- Тексты секций лендинга
+- Отладка логики fallback-моделей
 
-## Что исправлялось вручную
+## Что делалось вручную
 
-- Упрощен дизайн: без декоративных блоков, с обычной сеткой и понятными акцентами.
-- API сделан на Express с CORS и TypeScript.
-- Добавлен dry-run режим почты для локальной проверки без внешних ключей.
-- AI helper вынесен на backend, чтобы не раскрывать API ключ в браузере.
-
-## Деплой
-
-Frontend можно развернуть на Vercel, Netlify или любом static hosting. Backend можно развернуть на Render, Railway, Fly.io или как serverless function после переноса handler-логики. В переменных окружения деплоя нужно указать почтовые настройки и, при необходимости, `OPENAI_API_KEY`.
+- Логика фронта и бека
+- Структура компонентов и API
+- Дизайн
+- Модели OpenRouter перебирал вручную какие реально бесплатные и рабочие
+- сделал перебор моделей через `/models`
+- Стили подгонял под свой дизайн
