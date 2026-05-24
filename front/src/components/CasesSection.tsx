@@ -15,7 +15,7 @@ const cases = [
     text: 'Разработал backend и логику Telegram-бота на Node.js и TypeScript. Настроил PostgreSQL, деплой на Railway, обработку медиафайлов и хранение пользовательских данных.',
   },
   {
-    type: 'Hackathon',
+    type: 'Hackaton',
     title: 'Tender Hack — топ 5',
     text: 'Участвовал в разработке умной поисковой строки для “Портала поставщиков”. Работал над frontend частью, UX и обработкой пользовательских запросов.',
   },

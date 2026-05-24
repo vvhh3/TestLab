@@ -1,63 +1,21 @@
 import cors from 'cors'
-import express, { Request, Response } from 'express'
+import express from 'express'
 import { Resend } from 'resend'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
 const app = express()
-const PORT = 4000
 const resend = new Resend(process.env.RESEND_API_KEY)
-const AI_API_BASE = process.env.AI_API_BASE ?? 'https://openrouter.ai/api/v1'
+const API = process.env.AI_API_BASE ?? 'https://openrouter.ai/api/v1'
+const KEY = () => process.env.AI_API_KEY ?? ''
 
-app.use(cors({ origin: '*' }))
-app.use(express.json())
+app.use(cors({ origin: '*' }), express.json())
 
-const escapeHtml = (s: string) =>
-  s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
-   .replaceAll('"','&quot;').replaceAll("'",'&#039;')
+const esc = (s: string) =>
+  s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]!))
 
-interface Message { role: 'system' | 'user' | 'assistant'; content: string }
-
-const getFreeModels = async (apiKey: string): Promise<string[]> => {
-  const res = await fetch(`${AI_API_BASE}/models`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  })
-  if (!res.ok) return []
-  const { data } = await res.json() as { data: { id: string; pricing: { prompt: string } }[] }
-  return data
-    .filter(m => m.id.endsWith(':free') && parseFloat(m.pricing?.prompt) === 0)
-    .map(m => m.id)
-    .slice(0, 10)
-}
-
-const askAi = async (messages: Message[], maxTokens = 300): Promise<string | null> => {
-  const apiKey = process.env.AI_API_KEY
-  if (!apiKey) return null
-
-  const models = await getFreeModels(apiKey).catch(() => [])
-  if (!models.length) return null
-
-  for (const model of models) {
-    try {
-      const res = await fetch(`${AI_API_BASE}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'HTTP-Referer': process.env.FRONTEND_URL ?? 'http://localhost:5173',
-        },
-        body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
-      })
-      if (!res.ok) { console.error(`[AI] ${model} → ${res.status}`); continue }
-      const text = ((await res.json()) as any).choices?.[0]?.message?.content?.trim()
-      if (text) { console.log(`[AI] ответил: ${model}`); return text }
-    } catch { continue }
-  }
-  return null
-}
-
-const SYSTEM_PROMPT = `Ты — AI-ассистент на портфолио Матвея Александрова.
+const PROMPT = `Ты — AI-ассистент на портфолио Матвея Александрова.
 Отвечай кратко на русском. Не придумывай факты.
 Имя: Матвей Александров, 18 лет. Город: Новокуйбышевск, готов к переезду в Самару/удалёнке.
 Контакты: matveialex2007@gmail.com, tg: @ia_botik, github: github.com/vvhh3
@@ -66,17 +24,51 @@ const SYSTEM_PROMPT = `Ты — AI-ассистент на портфолио М
 Проекты: DeFi Dashboard (github.com/vvhh3/Credit), Telegram Dating Bot (github.com/vvhh3/DatingTgBot).
 Достижения: 2-е место "Профессионалы" (блокчейн), топ-5 хакатон "Tender Hack".`
 
-app.post('/api/contact', async (req: Request, res: Response) => {
-  const { name, phone, email, comment } = req.body as Record<string, unknown>
-  const fields = [name, phone, email, comment].map(v => String(v ?? '').trim())
+type Msg = { role: 'system' | 'user' | 'assistant'; content: string }
 
-  if (fields.some(f => !f))
-    return res.status(400).json({ message: 'Заполните все поля' })
+async function askAi(messages: Msg[]): Promise<string | null> {
+  const key = KEY()
+  if (!key) return null
 
-  const [n, p, e, c] = fields.map(escapeHtml)
+  const { data } = await fetch(`${API}/models`, {
+    headers: { Authorization: `Bearer ${key}` },
+  }).then(r => r.json()) as { data: { id: string; pricing: { prompt: string } }[] }
+
+  const models = data
+    ?.filter(m => m.id.endsWith(':free') && parseFloat(m.pricing?.prompt) === 0)
+    .map(m => m.id)
+    .slice(0, 10) ?? []
+
+  for (const model of models) {
+    try {
+      const r = await fetch(`${API}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+          'HTTP-Referer': process.env.FRONTEND_URL ?? 'http://localhost:5173',
+        },
+        body: JSON.stringify({ model, messages, max_tokens: 300 }),
+      })
+      if (!r.ok) continue
+      const json = await r.json() as { choices: { message: { content: string } }[] }
+      const text = json.choices?.[0]?.message?.content?.trim()
+      if (text) return text
+    } catch { continue }
+  }
+  return null
+}
+
+app.post('/api/contact', async (req, res) => {
+  console.log("🔥 ROUTE HIT /api/contact")
+  const vals = ['name', 'phone', 'email', 'comment'].map(k => String(req.body?.[k] ?? '').trim())
+  if (vals.some(v => !v)) return res.status(400).json({ message: 'Заполните все поля' })
+
+  const [n, p, e, c] = vals.map(esc)
 
   try {
-    await resend.emails.send({
+
+    const { data, error } = await resend.emails.send({
       from: 'Portfolio <onboarding@resend.dev>',
       to: 'matveialex2007@gmail.com',
       replyTo: e,
@@ -84,21 +76,33 @@ app.post('/api/contact', async (req: Request, res: Response) => {
       html: `<div style="font-family:Arial;padding:20px">
         <h2>Новая заявка</h2>
         <p><b>Имя:</b> ${n}</p><p><b>Телефон:</b> ${p}</p>
-        <p><b>Email:</b> ${e}</p><p><b>Комментарий:</b><br>${c.replaceAll('\n','<br>')}</p>
+        <p><b>Email:</b> ${e}</p><p><b>Комментарий:</b><br>${c.replaceAll('\n', '<br>')}</p>
       </div>`,
     })
-    return res.json({ message: 'Сообщение отправлено' })
-  } catch {
+
+    if (error) {
+      return res.status(500).json({
+        message: 'Ошибка отправки'
+      })
+    }
+    console.error({ data, error })
+    return res.json({
+      id: data.id,
+      message: 'Сообщение отправлено'
+    })
+
+  } catch (e) {
+    console.log("Ошибка отправки письма:", e)
     return res.status(500).json({ message: 'Ошибка отправки' })
   }
 })
 
-app.post('/api/ai-chat', async (req: Request, res: Response) => {
+app.post('/api/ai-chat', async (req, res) => {
   const message = String(req.body?.message ?? '').trim()
   if (!message) return res.status(400).json({ message: 'Сообщение пустое' })
 
   const reply = await askAi([
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: PROMPT },
     { role: 'user', content: message },
   ])
 
@@ -107,4 +111,5 @@ app.post('/api/ai-chat', async (req: Request, res: Response) => {
     : res.status(502).json({ message: 'AI недоступен, попробуй позже' })
 })
 
-app.listen(PORT, () => console.log(`Server: http://localhost:${PORT}`))
+app.listen(4000, () =>
+  console.log(`Server: http://localhost:4000`))

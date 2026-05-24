@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
+// import type { FormEvent } from 'react'
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -42,29 +42,39 @@ export const ContactSection = () => {
     }
   }
 
-  const submitForm = async (event: FormEvent) => {
-    event.preventDefault()
-
+  const submitForm = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    
     try {
-      const response = await fetch(`${BASE}/api/contact`,
+      const response = await fetch(
+        `${BASE}/api/contact`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(form),
-        },
+        }
       )
-      console.log("response", response)
+
       const data = await response.json()
 
-      console.log(data)
+      if (!response.ok) {
+        setSubmitState('error')
+        setSubmitMessage(data.message)
+        return
+      }
+
       setSubmitState('success')
-      setSubmitMessage('Сообщение отправлено!')
+      setSubmitMessage(data.message)
+
     } catch (error) {
       console.log(error)
+
       setSubmitState('error')
-      setSubmitMessage('Ошибка отправки сообщения.')
+      setSubmitMessage(
+        'Ошибка отправки сообщения.'
+      )
     }
   }
 
